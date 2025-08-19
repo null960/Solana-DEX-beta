@@ -12,7 +12,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <ThemeProvider>
-      <ConnectionProvider endpoint="https://api.devnet.solana.com">
+      <ConnectionProvider endpoint="https://api.mainnet-beta.solana.com" config={{ commitment: 'confirmed' }}>
         <WalletProvider
           wallets={[new PhantomWalletAdapter()]}
           autoConnect={true}

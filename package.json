@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@jup-ag/api": "^6.0.44",
     "@meteora-ag/dlmm-sdk": "^0.7.7",
     "@orca-so/sdk": "^1.2.26",
     "@solana/spl-token": "^0.1.8",
@@ -16,7 +17,9 @@
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.2",
+    "axios": "^1.11.0",
     "bn.js": "^5.2.2",
+    "bs58": "^6.0.0",
     "buffer": "^6.0.3",
     "decimal.js": "^10.6.0",
     "lodash": "^4.17.21",

@@ -1,13 +1,7 @@
-import React, { useContext, useEffect, useState, useRef, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import TokenSelector from './TokenSelector.jsx';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { VersionedTransaction, PublicKey, LAMPORTS_PER_SOL, AddressLookupTableAccount } from '@solana/web3.js';
-import { Buffer } from 'buffer';
-import { ThemeContext } from './ThemeContext.jsx';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
 import debounce from 'lodash/debounce';
-
 import Refresh from './assets/refresh.svg';
 import Setting from './assets/setting.svg';
 
@@ -23,322 +17,203 @@ const DECIMALS = {
   USDT: 6,
 };
 
+const AVAILABLE_TOKENS = ['SOL', 'USDC', 'USDT'];
+
 export default function Exchange() {
-  const { theme, themes } = useContext(ThemeContext);
-  const [openSelector, setOpenSelector] = useState(null);
-  const [tokenA, setTokenA] = useState({ symbol: 'SOL' });
-  const [tokenB, setTokenB] = useState({ symbol: 'USDC' });
-  const [amount, setAmount] = useState('');
+  const { publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
+
+  const [tokenA, setTokenA] = useState('SOL');
+  const [tokenB, setTokenB] = useState('USDC');
+  const [amountA, setAmountA] = useState('');
   const [amountB, setAmountB] = useState('');
-  const [activeInput, setActiveInput] = useState('from');
   const [price, setPrice] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
 
   const fromRef = useRef(null);
   const toRef = useRef(null);
 
-  const { connection } = useConnection();
-  const { publicKey, sendTransaction, signTransaction } = useWallet();
-
-  const debouncedFetchPrice = useCallback(
-    debounce(async (tokenA, tokenB, amount) => {
-      if (!tokenA || !tokenB || !amount) {
-        setPrice(null);
+  const fetchQuote = useCallback(
+    debounce(async (inToken, outToken, amount) => {
+      if (!amount || parseFloat(amount) <= 0) {
         setAmountB('');
+        setPrice(null);
         return;
       }
+
       try {
         setIsLoading(true);
-        setError(null);
-        const decimalsA = DECIMALS[tokenA.symbol] || 6;
-        const amountUnits = Math.round(parseFloat(amount) * 10 ** decimalsA);
-        const res = await fetch(
-          `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[tokenA.symbol]}&outputMint=${TOKEN_MINTS[tokenB.symbol]}&amount=${amountUnits}&slippageBps=50`
-        );
+        setError('');
+
+        const decimals = DECIMALS[inToken] || 6;
+        const amountUnits = Math.round(parseFloat(amount) * 10 ** decimals);
+
+        const url = `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[inToken]}&outputMint=${TOKEN_MINTS[outToken]}&amount=${amountUnits}&slippageBps=100&onlyDirectRoutes=false`;
+
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) }); // Добавил таймаут для надежности
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
         const data = await res.json();
-        if (data && data.outAmount) {
-          const decimalsB = DECIMALS[tokenB.symbol] || 6;
-          const outAmount = parseFloat(data.outAmount) / 10 ** decimalsB;
-          const inAmount = parseFloat(amount);
-          const rate = outAmount / inAmount;
-          setPrice(rate);
-          setAmountB((inAmount * rate).toFixed(6));
-        } else {
-          setPrice(null);
+
+        if (!data || !data.outAmount) {
+          setError('Нет доступных путей свапа для выбранной пары токенов.');
           setAmountB('');
-          setError('Failed to get quote. Check token availability on Devnet.');
+          setPrice(null);
+          return;
         }
+
+        const outAmount = parseFloat(data.outAmount) / 10 ** DECIMALS[outToken];
+        const rate = outAmount / parseFloat(amount);
+        setPrice(rate);
+        setAmountB(outAmount.toFixed(6));
       } catch (err) {
-        console.error('Quote error:', err);
+        console.error('Quote error:', err.message);
+        setError('Ошибка при получении котировки. Проверьте соединение или пару токенов.');
         setPrice(null);
         setAmountB('');
-        setError('Error fetching quote. Ensure tokens are available.');
       } finally {
         setIsLoading(false);
       }
-    }, 1000),
+    }, 500),
     []
   );
 
+  useEffect(() => {
+    fetchQuote(tokenA, tokenB, amountA);
+  }, [tokenA, tokenB, amountA, fetchQuote]);
+
+  const handleSwapTokens = () => {
+    setTokenA(tokenB);
+    setTokenB(tokenA);
+    setAmountA(amountB);
+    setAmountB(amountA);
+  };
+
   const handleSwap = async () => {
-    if (!publicKey || !tokenA || !tokenB || !amount || price === null) {
-      setError('Please select tokens and enter an amount.');
+    if (!publicKey) {
+      setError('Подключите кошелек!');
+      return;
+    }
+    if (!amountA || parseFloat(amountA) <= 0) {
+      setError('Введите сумму для свапа.');
       return;
     }
 
     setIsLoading(true);
-    setError(null);
+    setError('');
 
     try {
-      const balance = await connection.getBalance(publicKey);
-      if (balance < 0.002 * LAMPORTS_PER_SOL) {
-        setError('Insufficient SOL for fees. Request test SOL (2 SOL recommended).');
-        return;
-      }
+      const decimals = DECIMALS[tokenA] || 6;
+      const amountUnits = Math.round(parseFloat(amountA) * 10 ** decimals);
 
-      const decimalsA = DECIMALS[tokenA.symbol] || 6;
-      const amountUnits = Math.round(parseFloat(amount) * 10 ** decimalsA);
-
-      // Получение котировки
-      const quoteResponse = await fetch(
-        `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[tokenA.symbol]}&outputMint=${TOKEN_MINTS[tokenB.symbol]}&amount=${amountUnits}&slippageBps=50`
+      const quoteRes = await fetch(
+        `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[tokenA]}&outputMint=${TOKEN_MINTS[tokenB]}&amount=${amountUnits}&slippageBps=50`
       );
-      if (!quoteResponse.ok) throw new Error(`Quote HTTP error: ${quoteResponse.status}`);
-      const quote = await quoteResponse.json();
+      if (!quoteRes.ok) throw new Error(`Quote HTTP error: ${quoteRes.status}`);
+      const quote = await quoteRes.json();
 
       if (!quote || !quote.outAmount) {
-        setError('Invalid quote response. Check token availability on Devnet.');
+        setError('Нет доступных путей свапа для выбранной пары токенов.');
         return;
       }
 
-      // Создание транзакции свопа
-      const swapResponse = await fetch('https://quote-api.jup.ag/v6/swap', {
+      const swapRes = await fetch('https://quote-api.jup.ag/v6/swap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quoteResponse: quote,
           userPublicKey: publicKey.toString(),
           wrapAndUnwrapSol: true,
-          feeAccount: null,
-          computeUnitPriceMicroLamports: 1000,
-          asLegacyTransaction: true, // Попытка использовать устаревший формат для упрощения
+          asLegacyTransaction: true,
         }),
       });
-      if (!swapResponse.ok) throw new Error(`Swap HTTP error: ${swapResponse.status}`);
-      const { swapTransaction } = await swapResponse.json();
 
-      const transactionBuf = Buffer.from(swapTransaction, 'base64');
-      let transaction;
-      try {
-        // Попытка десериализовать как VersionedTransaction
-        transaction = VersionedTransaction.deserialize(transactionBuf);
-      } catch (e) {
-        console.error('Deserialization error (Versioned):', e);
-        // Если VersionedTransaction не работает, попробуем как Legacy
-        transaction = Transaction.from(transactionBuf);
-      }
+      if (!swapRes.ok) throw new Error(`Swap HTTP error: ${swapRes.status}`);
+      const { swapTransaction } = await swapRes.json();
+      if (!swapTransaction) throw new Error('No swapTransaction in response');
 
-      // Получение и загрузка адресной таблицы, если указана
-      let addressLookupTableAccounts = [];
-      if ('addressTableLookups' in transaction.message) {
-        addressLookupTableAccounts = await Promise.all(
-          transaction.message.addressTableLookups.map(async (lookup) => {
-            const accountInfo = await connection.getAccountInfo(lookup.accountKey);
-            if (!accountInfo) {
-              throw new Error(`Address lookup table account not found: ${lookup.accountKey.toBase58()}`);
-            }
-            if (!accountInfo.data || !(accountInfo.data instanceof Uint8Array)) {
-              throw new Error(`Invalid data format for address lookup table: ${lookup.accountKey.toBase58()}`);
-            }
-            try {
-              const data = new Uint8Array(accountInfo.data);
-              return new AddressLookupTableAccount({
-                key: lookup.accountKey,
-                state: AddressLookupTableAccount.deserialize(data),
-              });
-            } catch (err) {
-              console.error('Deserialization error:', err);
-              throw new Error('Failed to deserialize address lookup table account.');
-            }
-          })
-        );
-      }
+      const txBuffer = Buffer.from(swapTransaction, 'base64');
+      const transaction = Transaction.from(txBuffer);
 
-      // Установка blockhash
-      const { blockhash } = await connection.getLatestBlockhash();
-      if (transaction instanceof VersionedTransaction) {
-        transaction.message.recentBlockhash = blockhash;
-      } else {
-        transaction.recentBlockhash = blockhash;
-      }
-      transaction.feePayer = publicKey;
-
-      // Симуляция транзакции
-      const simulation = await connection.simulateTransaction(transaction, addressLookupTableAccounts);
-      if (simulation.value.err) {
-        console.log('Simulation error details:', simulation.value.err);
-        throw new Error(`Simulation failed: ${JSON.stringify(simulation.value.err)}`);
-      }
-
-      // Подпись и отправка через кошелек
-      const signedTransaction = await signTransaction(transaction);
-      const signature = await sendTransaction(signedTransaction, connection);
+      const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, 'confirmed');
 
-      setAmount('');
+      setAmountA('');
       setAmountB('');
-      setError(null);
-      alert(`Swap successful! Transaction: ${signature}`);
+      setError('');
+      alert(`Свап успешен! Подтверждение: ${signature}`);
     } catch (err) {
-      console.error('Swap error:', err);
-      if (err.message.includes('User rejected')) setError('Transaction rejected. Confirm in wallet.');
-      else if (err.message.includes('InstructionError')) setError('Unsupported program or invalid transaction. Try different tokens or amount.');
-      else setError('Swap failed. Check console for details.');
+      console.error('Swap error:', err.message);
+      setError(`Свап не выполнен: ${err.message}. Проверьте баланс, slippage или консоль.`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const requestAirdrop = async () => {
-    if (!publicKey) {
-      alert('Please connect your wallet');
-      return;
-    }
+    if (!publicKey) return alert('Подключите кошелек!');
     setIsLoading(true);
     try {
-      const signature = await connection.requestAirdrop(publicKey, 2 * LAMPORTS_PER_SOL);
-      await connection.confirmTransaction(signature, 'confirmed');
-      alert('Test SOL (2 SOL) requested successfully!');
+      const sig = await connection.requestAirdrop(publicKey, 2 * LAMPORTS_PER_SOL);
+      await connection.confirmTransaction(sig, 'confirmed');
+      alert('Тестовые SOL успешно зачислены!');
     } catch (err) {
-      console.error('Airdrop error:', err);
-      setError('Failed to request test SOL. Try again.');
+      console.error('Airdrop error:', err.message);
+      setError('Не удалось получить тестовые SOL. Попробуйте снова или проверьте сеть.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleRefresh = () => {
-    debouncedFetchPrice(tokenA, tokenB, amount || '1');
-  };
-
-  useEffect(() => {
-    if (!tokenA || !tokenB || price === null) return;
-    if (activeInput === 'from') {
-      const val = parseFloat(amount);
-      setAmountB(!isNaN(val) ? (val * price).toFixed(6) : '');
-    } else {
-      const valB = parseFloat(amountB);
-      setAmount(!isNaN(valB) && price !== 0 ? (valB / price).toFixed(6) : '');
-    }
-  }, [amount, amountB, price, tokenA, tokenB, activeInput]);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (openSelector === 'from' && fromRef.current && !fromRef.current.contains(e.target)) setOpenSelector(null);
-      if (openSelector === 'to' && toRef.current && !toRef.current.contains(e.target)) setOpenSelector(null);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [openSelector]);
-
-  const swapTokens = () => {
-    const oldA = tokenA;
-    const oldB = tokenB;
-    const oldAmt = amount;
-    setTokenA(oldB);
-    setTokenB(oldA);
-    setAmount(amountB);
-    setAmountB(oldAmt);
-    setActiveInput(activeInput === 'from' ? 'to' : 'from');
-  };
-
   return (
-    <div className="flex flex-col items-center px-4 mt-8">
-      <div style={themes[theme].bgMenu} className="rounded-xl shadow-2xl w-full max-w-md p-6 sm:p-3">
-        <div className="flex flex-col space-y-6">
-          <div className="relative flex justify-end items-center gap-2">
-            <button onClick={handleRefresh} className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-xl flex items-center justify-center`} disabled={isLoading}>
-              <img src={Refresh} alt="Refresh" className={`w-5 h-5 ${themes[theme].imgColor}`} />
-            </button>
-            <button onClick={requestAirdrop} className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-xl flex items-center justify-center`} disabled={isLoading}>
-              <img src={Setting} alt="Settings" className={`w-7 h-7 ${themes[theme].imgColor}`} />
-            </button>
-          </div>
+    <div className="flex flex-col items-center p-6">
+      <div className="flex justify-end gap-2 mb-4">
+        <button onClick={() => fetchQuote(tokenA, tokenB, amountA)} disabled={isLoading}>
+          <img src={Refresh} alt="Refresh" className="w-6 h-6" />
+        </button>
+        <button onClick={requestAirdrop} disabled={isLoading}>
+          <img src={Setting} alt="Settings" className="w-6 h-6" />
+        </button>
+      </div>
 
-          <div className="relative" ref={fromRef}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">You pay</label>
-            <div className="bg-gray-900 text-white rounded-xl px-4 py-3 flex justify-between items-center">
-              <button onClick={() => setOpenSelector(openSelector === 'from' ? null : 'from')} className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-md text-sm font-medium flex items-center">
-                {tokenA.symbol}
-                <svg className={`w-4 h-4 ml-1 text-gray-300 transform ${openSelector === 'from' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              <input
-                type="number"
-                placeholder="0.0"
-                value={amount}
-                onChange={(e) => { setAmount(e.target.value); setActiveInput('from'); }}
-                className="bg-transparent text-right text-white text-lg font-bold w-1/2 focus:outline-none"
-                disabled={isLoading}
-              />
-            </div>
-            {openSelector === 'from' && (
-              <div className="absolute mt-2 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-20">
-                <TokenSelector onSelect={(token) => { setTokenA(token); setOpenSelector(null); }} />
-              </div>
-            )}
-          </div>
+      <div className="flex gap-4 mb-4">
+        <div>
+          <label>You pay</label>
+          <input
+            type="number"
+            value={amountA}
+            onChange={e => setAmountA(e.target.value)}
+            placeholder="0.0"
+          />
+          <select value={tokenA} onChange={e => setTokenA(e.target.value)}>
+            {AVAILABLE_TOKENS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
 
-          <div className="flex justify-center pt-2">
-            <button onClick={swapTokens} className="bg-gray-800 text-white rounded-full p-2 shadow-md hover:bg-gray-700 transition" disabled={isLoading}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6M4 10l6 6M20 14l-6-6" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="relative" ref={toRef}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">You receive</label>
-            <div className="bg-gray-900 text-white rounded-xl px-4 py-3 flex justify-between items-center">
-              <button onClick={() => setOpenSelector(openSelector === 'to' ? null : 'to')} className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-md text-sm font-medium flex items-center">
-                {tokenB.symbol}
-                <svg className={`w-4 h-4 ml-1 text-gray-300 transform ${openSelector === 'to' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              <span className="text-lg font-bold">{amountB}</span>
-            </div>
-            {openSelector === 'to' && (
-              <div className="absolute mt-2 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-20">
-                <TokenSelector onSelect={(token) => { setTokenB(token); setOpenSelector(null); }} />
-              </div>
-            )}
-          </div>
-
-          {tokenA && tokenB && price !== null && (
-            <div className="text-sm text-gray-500 text-center">
-              1 {tokenA.symbol} ≈ {price.toFixed(2)} {tokenB.symbol}
-            </div>
-          )}
-
-          {error && <div className="text-sm text-red-500 text-center">{error}</div>}
-
-          <button
-            onClick={handleSwap}
-            disabled={!publicKey || !tokenA || !tokenB || !amount || price === null || isLoading}
-            className={`w-full py-3 rounded-lg font-semibold text-white transition text-base sm:text-lg ${
-              publicKey && tokenA && tokenB && amount && price !== null && !isLoading
-                ? 'bg-blue-500 hover:bg-blue-600'
-                : 'bg-gray-300 cursor-not-allowed'
-            }`}
-          >
-            {isLoading ? 'Processing...' : 'Swap'}
-          </button>
+        <div>
+          <label>You receive</label>
+          <input
+            type="number"
+            value={amountB}
+            readOnly
+            placeholder="0.0"
+          />
+          <select value={tokenB} onChange={e => setTokenB(e.target.value)}>
+            {AVAILABLE_TOKENS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
         </div>
       </div>
+
+      {price && <div className="mb-2">1 {tokenA} ≈ {price.toFixed(6)} {tokenB}</div>}
+      {error && <div className="text-red-500 mb-2">{error}</div>}
+
+      <button
+        onClick={handleSwap}
+        disabled={isLoading || !amountA}
+        className={`px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 transition`}
+      >
+        {isLoading ? 'Processing...' : 'Swap'}
+      </button>
     </div>
   );
 }
