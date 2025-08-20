@@ -123,7 +123,7 @@ export default function Navbar({ showNotification }) {
           onClick={() => setSettingsOpen(!settingsOpen)}
           className={`${themes[theme].buttonsRightHover} w-10 h-10 rounded-xl font-bold flex items-center justify-center`}
         >
-          <img src={Settings} alt="Settings Icon" className={`w-8 h-8 object-contain ${themes[theme].imgColor}`}/>
+          <img src={Settings} alt="Settings Icon" className={`w-7 h-7 object-contain ${themes[theme].imgColor}`}/>
         </button>
 
         <button

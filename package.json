@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@jup-ag/api": "^6.0.44",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@meteora-ag/dlmm-sdk": "^0.7.7",
     "@orca-so/sdk": "^1.2.26",
     "@solana/spl-token": "^0.1.8",
@@ -22,6 +23,7 @@
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
     "decimal.js": "^10.6.0",
+    "dotenv": "^17.2.1",
     "lodash": "^4.17.21",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
