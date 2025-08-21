@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Metadata, METADATA_PROGRAM_ID } from '@metaplex-foundation/mpl-token-metadata';
+import { ThemeContext } from './ThemeContext.jsx';
 
 const KNOWN_TOKEN_MINTS = {
   'So11111111111111111111111111111111111111112': { symbol: 'SOL', decimals: 9, name: 'Solana' },
@@ -11,6 +12,7 @@ const KNOWN_TOKEN_MINTS = {
 };
 
 export default function Portfolio() {
+  const { theme, setTheme, themes } = useContext(ThemeContext);
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
   const [portfolio, setPortfolio] = useState([]);

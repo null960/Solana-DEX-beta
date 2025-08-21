@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
+import { ThemeContext } from './ThemeContext.jsx';
 import debounce from 'lodash/debounce';
 import Refresh from './assets/refresh.svg';
 import Setting from './assets/setting.svg';
@@ -16,13 +17,12 @@ const DECIMALS = {
   USDC: 6,
   USDT: 6,
 };
-
 const AVAILABLE_TOKENS = ['SOL', 'USDC', 'USDT'];
 
 export default function Exchange() {
+  const { theme, setTheme, themes } = useContext(ThemeContext);
   const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
-
   const [tokenA, setTokenA] = useState('SOL');
   const [tokenB, setTokenB] = useState('USDC');
   const [amountA, setAmountA] = useState('');
@@ -30,6 +30,8 @@ export default function Exchange() {
   const [price, setPrice] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [swapmenuOpen, setSwapmenuOpen] = useState(false);
+  const SwapButtonRef = useRef(null);
 
   const fromRef = useRef(null);
   const toRef = useRef(null);
@@ -49,7 +51,7 @@ export default function Exchange() {
         const decimals = DECIMALS[inToken] || 6;
         const amountUnits = Math.round(parseFloat(amount) * 10 ** decimals);
 
-        const url = `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[inToken]}&outputMint=${TOKEN_MINTS[outToken]}&amount=${amountUnits}&slippageBps=100&onlyDirectRoutes=false`;
+        const url = `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[inToken]}&outputMint=${TOKEN_MINTS[outToken]}&amount=${amountUnits}&slippageBps=5&onlyDirectRoutes=false`;
 
         const res = await fetch(url, { signal: AbortSignal.timeout(5000) }); // Добавил таймаут для надежности
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
@@ -107,7 +109,7 @@ export default function Exchange() {
       const amountUnits = Math.round(parseFloat(amountA) * 10 ** decimals);
 
       const quoteRes = await fetch(
-        `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[tokenA]}&outputMint=${TOKEN_MINTS[tokenB]}&amount=${amountUnits}&slippageBps=50`
+        `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[tokenA]}&outputMint=${TOKEN_MINTS[tokenB]}&amount=${amountUnits}&slippageBps=5`
       );
       if (!quoteRes.ok) throw new Error(`Quote HTTP error: ${quoteRes.status}`);
       const quote = await quoteRes.json();
@@ -150,70 +152,115 @@ export default function Exchange() {
     }
   };
 
-  const requestAirdrop = async () => {
-    if (!publicKey) return alert('Подключите кошелек!');
-    setIsLoading(true);
-    try {
-      const sig = await connection.requestAirdrop(publicKey, 2 * LAMPORTS_PER_SOL);
-      await connection.confirmTransaction(sig, 'confirmed');
-      alert('Тестовые SOL успешно зачислены!');
-    } catch (err) {
-      console.error('Airdrop error:', err.message);
-      setError('Не удалось получить тестовые SOL. Попробуйте снова или проверьте сеть.');
-    } finally {
-      setIsLoading(false);
+  const swapSettings = () => {
+    if (SwapButtonRef.current && swapmenuOpen) {
+      const buttonRect = SwapButtonRef.current.getBoundingClientRect();
+      const menuElement3 = document.querySelector('.swap-menu');
+      if (menuElement3) {
+        menuElement3.style.top = `${buttonRect.bottom + window.scrollY + 5}px`;
+        menuElement3.style.left = `${buttonRect.left + (buttonRect.width / 2) - (menuElement3.offsetWidth / 2) + window.scrollX}px`;
+      }
     }
   };
+  useEffect(() => {
+      swapSettings();
+      window.addEventListener('resize', swapSettings);
+      return () => window.removeEventListener('resize', swapSettings);
+    }, [swapmenuOpen]);
 
   return (
-    <div className="flex flex-col items-center p-6">
-      <div className="flex justify-end gap-2 mb-4">
-        <button onClick={() => fetchQuote(tokenA, tokenB, amountA)} disabled={isLoading}>
-          <img src={Refresh} alt="Refresh" className="w-6 h-6" />
-        </button>
-        <button onClick={requestAirdrop} disabled={isLoading}>
-          <img src={Setting} alt="Settings" className="w-6 h-6" />
-        </button>
-      </div>
+  <div className="flex flex-col items-center p-6 border-1 rounded-4xl">
+    <div className="flex justify-end gap-1 mb-4">
+    <button
+      className={`${themes[theme].buttonsRightHover} w-7 h-7 rounded-xl font-bold flex items-center justify-center`} 
+      ref={SwapButtonRef}
+      onClick={() => setSwapmenuOpen(!swapmenuOpen)}
+    >
+      <img src={Setting} alt="Settings" className={`w-7 h-7 object-contain ${themes[theme].imgColor}`} />
+    </button>
+    <button 
+      className={`${themes[theme].buttonsRightHover} w-7 h-7 rounded-xl font-bold flex items-center justify-center`}
+      onClick={() => fetchQuote(tokenA, tokenB, amountA)} 
+      disabled={isLoading}
+    >
+      <img src={Refresh} alt="Refresh" className={`w-5 h-5 object-contain ${themes[theme].imgColor}`} />
+    </button>
+  </div>
 
-      <div className="flex gap-4 mb-4">
-        <div>
-          <label>You pay</label>
-          <input
-            type="number"
-            value={amountA}
-            onChange={e => setAmountA(e.target.value)}
-            placeholder="0.0"
-          />
-          <select value={tokenA} onChange={e => setTokenA(e.target.value)}>
-            {AVAILABLE_TOKENS.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-
-        <div>
-          <label>You receive</label>
-          <input
-            type="number"
-            value={amountB}
-            readOnly
-            placeholder="0.0"
-          />
-          <select value={tokenB} onChange={e => setTokenB(e.target.value)}>
-            {AVAILABLE_TOKENS.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {price && <div className="mb-2">1 {tokenA} ≈ {price.toFixed(6)} {tokenB}</div>}
-      {error && <div className="text-red-500 mb-2">{error}</div>}
-
-      <button
-        onClick={handleSwap}
-        disabled={isLoading || !amountA}
-        className={`px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 transition`}
-      >
-        {isLoading ? 'Processing...' : 'Swap'}
-      </button>
+  <div className="flex flex-col items-center gap-4 mb-4 w-full">
+    <div className="border-1 rounded-2xl w-full p-4 relative">
+    <label className="absolute top-2 left-2 text-sm">Selling</label>
+    <div className="flex items-center gap-2 mt-8">
+      <select value={tokenA} onChange={e => setTokenA(e.target.value)} className="w-1/2 border-1">
+        {AVAILABLE_TOKENS.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <input
+        type="number"
+        value={amountA}
+        onChange={e => setAmountA(e.target.value)}
+        placeholder="0.0"
+        className="w-1/2 border-1"
+      />
     </div>
+    </div>
+
+  <button 
+  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
+  onClick={() => {
+    const tempToken = tokenA;
+    const tempAmount = amountA;
+    setTokenA(tokenB);
+    setTokenB(tempToken);
+    setAmountA(amountB);
+    setAmountB(tempAmount);
+    fetchQuote(tokenB, tokenA, amountB || '');
+  }}
+>
+  Swap Direction
+</button>
+
+  <div className="border-1 rounded-2xl w-full p-4 relative">
+    <label className="absolute top-2 left-2 text-sm">Buying</label>
+    <div className="flex items-center gap-2 mt-8">
+      <select value={tokenB} onChange={e => setTokenB(e.target.value)} className="w-1/2 border-1">
+        {AVAILABLE_TOKENS.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <input
+        type="number"
+        value={amountB}
+        readOnly
+        placeholder="0.0"
+        className="w-1/2 border-1"
+      />
+    </div>
+  </div>
+  </div>
+
+  {price && <div className="mb-2">1 {tokenA} ≈ {price.toFixed(6)} {tokenB}</div>}
+  {error && <div className="text-red-500 mb-2">{error}</div>}
+
+  <button
+    onClick={handleSwap}
+    disabled={isLoading || !amountA}
+    className="px-10 py-3 rounded bg-blue-500 text-white hover:bg-blue-600 transition"
+  >
+    {isLoading ? 'Processing...' : 'Swap'}
+  </button>
+
+  {swapmenuOpen && (
+    <div
+      className="fixed inset-0 bg-transparent backdrop-filter backdrop-blur-md z-40" 
+      style={themes[theme].filt}
+      onClick={() => setSwapmenuOpen(false)}
+    >
+      <div
+        style={themes[theme].bgMenu}
+        className="settings-menu absolute rounded-xl shadow-lg z-50 p-2 w-50"
+        onClick={(e) => e.stopPropagation()}
+      >
+      </div>
+    </div>
+  )}
+  </div>
   );
 }
