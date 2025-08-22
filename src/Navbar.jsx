@@ -8,6 +8,9 @@ import Settings from './assets/settings.svg';
 import Copy from './assets/copy.svg';
 import Wallet from './assets/wallet.svg';
 import Exit from './assets/exit.svg';
+import X from './assets/X.svg';
+import Discord from './assets/Discord.svg';
+import Telegram from './assets/Telegram.svg';
 
 export default function Navbar({ showNotification }) {
   const { theme, setTheme, themes } = useContext(ThemeContext);
@@ -104,8 +107,8 @@ export default function Navbar({ showNotification }) {
   }, [settingsOpen]);
 
   return (
-    <nav className={`${themes[theme].text} relative w-full px-4 sm:px-6 mt-4 flex sm:flex-row justify-between items-center gap-3`}>
-    <h1 className="text-xl sm:text-2xl font-bold text-center sm:text-left">
+    <nav className={`${themes[theme].text} relative w-full px-4 sm:px-6 mt-3 flex sm:flex-row justify-between items-center`}>
+    <h1 className="sm:text-2xl  font-bold text-center sm:text-left">
       Solana DEX
     </h1>
     <div className="absolute left-1/2 transform -translate-x-1/2">
@@ -216,6 +219,28 @@ export default function Navbar({ showNotification }) {
           </div>
         )}
       </div>
+        <div
+        className="fixed bottom-0 left-0 right-0 flex justify-center items-center p-3 gap-1"
+        >
+          <a
+            href = 'https://eclipse.invariant.app/exchange/ETH/USDC'
+            className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-full font-bold flex items-center justify-center`}
+          >
+            <img src={X} alt="" className={`w-5 h-5 object-contain ${themes[theme].imgColor}`}/>
+          </a>
+          <a
+            href = 'https://eclipse.invariant.app/exchange/ETH/USDC'
+            className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-full font-bold flex items-center justify-center`}
+          >
+            <img src={Discord} alt="" className={`w-6 h-6 object-contain ${themes[theme].imgColor}`}/>
+          </a>
+          <a
+            href = 'https://eclipse.invariant.app/exchange/ETH/USDC'
+            className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-full font-bold flex items-center justify-center`}
+          >
+            <img src={Telegram} alt="" className={`w-5 h-5 object-contain ${themes[theme].imgColor}`}/>
+          </a>
+        </div>
     </nav>
   );
 }
