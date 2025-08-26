@@ -5,6 +5,7 @@ import { ThemeContext } from './ThemeContext.jsx';
 import debounce from 'lodash/debounce';
 import Refresh from './assets/refresh.svg';
 import Setting from './assets/setting.svg';
+import ECHG from './assets/exchange.svg';
 
 const TOKEN_MINTS = {
   SOL: 'So11111111111111111111111111111111111111112',
@@ -53,7 +54,7 @@ export default function Exchange() {
 
         const url = `https://quote-api.jup.ag/v6/quote?inputMint=${TOKEN_MINTS[inToken]}&outputMint=${TOKEN_MINTS[outToken]}&amount=${amountUnits}&slippageBps=5&onlyDirectRoutes=false`;
 
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) }); // Добавил таймаут для надежности
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) }); //timeout
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
         const data = await res.json();
 
@@ -169,8 +170,9 @@ export default function Exchange() {
     }, [swapmenuOpen]);
 
   return (
-  <div className="w-130 h-135 flex flex-col items-center pb-2 pl-2 pr-2 border-1 rounded-3xl mt-15">
-    <div className="flex w-full justify-between pt-2 pb-1">
+  <div className="w-131 h-130 flex flex-col items-center p-[2px] rounded-[32px] mt-15 bg-gradient-to-b from-green-600/90 via-emerald-400/90 to-purple-600/90">
+    <div style={themes[theme].background} className="w-130 h-130 flex flex-col items-center pb-3 pl-3 pr-3 rounded-[31px]">
+    <div className="w-full flex justify-end gap-1 pt-3 pb-1">
       <button
         className={`${themes[theme].buttonsRightHover} w-7 h-7 rounded-xl font-bold flex items-center justify-center`} 
         ref={SwapButtonRef}
@@ -198,14 +200,14 @@ export default function Exchange() {
           type="number"
           value={amountA}
           onChange={e => setAmountA(e.target.value)}
-          placeholder="0.0"
+          placeholder="0.00"
           className="w-1/1 border-1 text-3xl pt-4 pb-4"
         />
       </div>
     </div>
 
     <button 
-    className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
+    className={`${themes[theme].buttonsRightHover} w-7 h-7 rounded-full font-bold flex items-center justify-center`}
     onClick={() => {
       const tempToken = tokenA;
       const tempAmount = amountA;
@@ -216,7 +218,7 @@ export default function Exchange() {
       fetchQuote(tokenB, tokenA, amountB || '');
     }}
     >
-    Swap Direction
+      <img src={ECHG} alt="" className={`w-5 h-5 ${themes[theme].imgColor}`} />
     </button>
 
   <div className="border-1 rounded-2xl w-full h-35 p-5 relative">
@@ -229,7 +231,7 @@ export default function Exchange() {
         type="number"
         value={amountB}
         readOnly
-        placeholder="0.0"
+        placeholder="0.00"
         className="w-1/1 border-1 text-3xl pt-4 pb-4"
       />
     </div>
@@ -246,6 +248,7 @@ export default function Exchange() {
   >
     {isLoading ? 'Processing...' : 'Swap'}
   </button>
+  </div>
 
   {swapmenuOpen && (
     <div
@@ -255,7 +258,7 @@ export default function Exchange() {
     >
       <div
         style={themes[theme].bgMenu}
-        className="settings-menu absolute rounded-xl shadow-lg z-50 p-2 w-50"
+        className="swap-menu absolute rounded-xl shadow-lg z-50 p-2 w-50"
         onClick={(e) => e.stopPropagation()}
       >
       </div>

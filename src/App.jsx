@@ -6,6 +6,10 @@ import Exchange from './Exchange.jsx';
 import Portfolio from './Portfolio.jsx';
 import Notification from './Notification.jsx';
 import { ThemeContext } from './ThemeContext.jsx';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { RPCContext } from './RPCContext.jsx';
 
 
 export default function App() {
@@ -14,22 +18,29 @@ export default function App() {
   
   const showNotification = (message) => {
     setNotification({ show: true, message });
-    setTimeout(() => setNotification({ show: false, message: '' }), 4000); // Скрыть через 3 секунды
+    setTimeout(() => setNotification({ show: false, message: '' }), 4000);
   };
+  const { endpoint } = useContext(RPCContext);
   return (
-    <Router>
-      <div style={themes[theme].background}  className={`${themes[theme].text} fixed top-0 left-0 min-h-screen w-screen`}>
-        <Navbar showNotification={showNotification} />
-        <main className="flex justify-center items-start px-4 sm:px-6 lg:px-8 py-10">
-          <Routes>
-            <Route path="/exchange" element={<Exchange />} />
-            <Route path="/portfolio" element={<Portfolio />} />
-          </Routes>
-        </main>
-        {notification.show && (
-          <Notification message={notification.message} onClose={() => setNotification({ show: false, message: '' })} />
-        )}
-      </div>
-    </Router>
+  <ConnectionProvider endpoint={endpoint} config={{ commitment: 'confirmed' }}>
+    <WalletProvider wallets={[new PhantomWalletAdapter()]} autoConnect={true}>
+      <WalletModalProvider>
+        <Router>
+          <div style={themes[theme].background} className={`${themes[theme].text} fixed top-0 left-0 min-h-screen w-screen`}>
+            <Navbar showNotification={showNotification} />
+            <main className="flex justify-center items-start px-4 sm:px-6 lg:px-8 py-10">
+              <Routes>
+                <Route path="/exchange" element={<Exchange />} />
+                <Route path="/portfolio" element={<Portfolio />} />
+              </Routes>
+            </main>
+            {notification.show && (
+              <Notification message={notification.message} onClose={() => setNotification({ show: false, message: '' })} />
+            )}
+          </div>
+        </Router>
+      </WalletModalProvider>
+    </WalletProvider>
+  </ConnectionProvider>
   );
 }

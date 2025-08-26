@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { ThemeContext } from './ThemeContext.jsx';
+import { RPCContext } from './RPCContext.jsx';
 
 import Settings from './assets/settings.svg';
 import Copy from './assets/copy.svg';
@@ -11,9 +12,12 @@ import Exit from './assets/exit.svg';
 import X from './assets/X.svg';
 import Discord from './assets/Discord.svg';
 import Telegram from './assets/Telegram.svg';
+import Light from './assets/light.svg';
+import Dark from './assets/dark.svg';
 
 export default function Navbar({ showNotification }) {
   const { theme, setTheme, themes } = useContext(ThemeContext);
+  const { endpoint, setEndpoint } = useContext(RPCContext);
   const location = useLocation();
   const { connected, publicKey, wallet, connect, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
@@ -155,26 +159,39 @@ export default function Navbar({ showNotification }) {
 
             {/* Тема */}
             <div className={`${themes[theme].text} flex flex-col`}>
-              <p className={`${themes[theme].linkNormal.split(' ')[0]} w-full text-center text-sm mb-2`}>Settings</p>
-              <span className="text-sm font-medium mb-1">Theme:</span>
-              <div style={themes[theme].buttonsCentre} className="inline-flex gap-1 rounded-xl w-fit">
+              <p className={`${themes[theme].linkNormal.split(' ')[0]} w-full text-center text-sm`}>Settings</p>
+              <span className="text-sm font-medium pt-1 pb-1">Theme:</span>
+              <div className="inline-flex rounded-2xl w-fit border-1">
                 <button
-                  className={`px-2 py-1 rounded-xl text-sm flex items-center transition ${theme === 'light' ? themes[theme].linkActive : ''}`}
-                  style={theme === 'light' ? {} : themes[theme].buttonsCentre}
+                  className={`px-3 py-2 rounded-2xl text-sm flex items-center transition ${theme === 'light' ? themes[theme].linkActive : themes[theme].linkNormal}`}
                   onClick={() => setTheme('light')}
                 >
-                  <img src={Copy} alt="Success Icon" className={`w-4 h-4 mr-1 ${themes[theme].imgColor}`} />
+                  <img src={Light} alt="" className={`w-4 h-4 mr-1 ${themes[theme].imgColor}`} />
                   Light
                 </button>
                 <button
-                  className={`px-2 py-1 rounded-xl text-sm flex items-center transition ${theme === 'dark' ? themes[theme].linkActive : ''}`}
-                  style={theme === 'dark' ? {} : themes[theme].buttonsCentre}
+                  className={`px-3 py-2 rounded-2xl text-sm flex items-center transition ${theme === 'dark' ? themes[theme].linkActive : themes[theme].linkNormal}`}
                   onClick={() => setTheme('dark')}
                 >
-                  <img src={Copy} alt="Success Icon" className={`w-4 h-4 mr-1 ${themes[theme].imgColor}`} />
+                  <img src={Dark} alt="" className={`w-4 h-4 mr-1 ${themes[theme].imgColor}`} />
                   Dark
                 </button>
               </div>
+              <span className="text-sm font-medium pt-4 pb-1">RPC Endpoint</span>
+              <div className="flex flex-col">
+                  <button
+                    className={`w-full text-left px-2 py-2 rounded-xl text-sm flex items-center ${endpoint === `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` ? themes[theme].linkActive : themes[theme].linkNormal}`}
+                    onClick={() => setEndpoint(`https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}`)}
+                  >
+                    Helius RPC
+                  </button>
+                  <button
+                    className={`w-full text-left px-2 py-2 rounded-xl text-sm flex items-center ${endpoint === 'https://api.mainnet-beta.solana.com' ? themes[theme].linkActive : themes[theme].linkNormal}`}
+                    onClick={() => setEndpoint('https://api.mainnet-beta.solana.com')}
+                  >
+                    Solana RPC
+                  </button>
+                </div>
             </div>
             </div>
           </div>
@@ -223,20 +240,20 @@ export default function Navbar({ showNotification }) {
         className="fixed bottom-0 left-0 right-0 flex justify-center items-center p-3 gap-1"
         >
           <a
-            href = 'https://eclipse.invariant.app/exchange/ETH/USDC'
-            className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-full font-bold flex items-center justify-center`}
+            href = 'https://google.com'
+            className={`${themes[theme].buttonsRightHover} w-9 h-9 rounded-full font-bold flex items-center justify-center`}
           >
             <img src={X} alt="" className={`w-5 h-5 object-contain ${themes[theme].imgColor}`}/>
           </a>
           <a
-            href = 'https://eclipse.invariant.app/exchange/ETH/USDC'
-            className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-full font-bold flex items-center justify-center`}
+            href = 'https://google.com'
+            className={`${themes[theme].buttonsRightHover} w-9 h-9 rounded-full font-bold flex items-center justify-center`}
           >
-            <img src={Discord} alt="" className={`w-6 h-6 object-contain ${themes[theme].imgColor}`}/>
+            <img src={Discord} alt="" className={`w-5 h-5 object-contain ${themes[theme].imgColor}`}/>
           </a>
           <a
-            href = 'https://eclipse.invariant.app/exchange/ETH/USDC'
-            className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-full font-bold flex items-center justify-center`}
+            href = 'https://google.com'
+            className={`${themes[theme].buttonsRightHover} w-9 h-9 rounded-full font-bold flex items-center justify-center`}
           >
             <img src={Telegram} alt="" className={`w-5 h-5 object-contain ${themes[theme].imgColor}`}/>
           </a>
