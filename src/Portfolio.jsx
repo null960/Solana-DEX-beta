@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { useNavigate } from 'react-router-dom';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Metadata, METADATA_PROGRAM_ID } from '@metaplex-foundation/mpl-token-metadata';
@@ -15,9 +16,17 @@ export default function Portfolio() {
   const { theme, setTheme, themes } = useContext(ThemeContext);
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
+  const navigate = useNavigate();
   const [portfolio, setPortfolio] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Redirect to /portfolio/<address> if wallet is connected
+  useEffect(() => {
+    if (connected && publicKey) {
+      navigate(`/portfolio/${publicKey.toBase58()}`);
+    }
+  }, [connected, publicKey, navigate]);
 
   const fetchTokenPrice = async (mint) => {
     try {
@@ -134,9 +143,11 @@ export default function Portfolio() {
       } catch (err) {
         console.error('Error fetching portfolio:', err.message);
         if (err.message.includes('403')) {
-          setError('Access to Solana RPC is restricted (403 Forbidden). Switch to a private RPC like Helius with an API key in main.jsx.');
+          setError('Доступ к Solana RPC ограничен (403 Forbidden)');
+        } else if (err.message.includes('429')) {
+          setError('Превышен лимит запросов (429 Too Many Requests)');
         } else {
-          setError(`Failed to load portfolio: ${err.message}`);
+          setError(`Не удалось загрузить портфолио: ${err.message}`);
         }
         setPortfolio([]);
       } finally {
@@ -145,14 +156,14 @@ export default function Portfolio() {
     };
 
     fetchPortfolio();
-    const interval = setInterval(fetchPortfolio, 60000); // Update every 60 seconds
+    const interval = setInterval(fetchPortfolio, 120000); // Обновление каждые 2 минуты
     return () => clearInterval(interval);
   }, [connected, publicKey, connection]);
 
   if (!connected) {
     return (
       <div className="text-center text-xl text-white p-6">
-        Please connect your wallet
+        Пожалуйста, подключите кошелёк
       </div>
     );
   }
@@ -160,7 +171,7 @@ export default function Portfolio() {
   if (loading) {
     return (
       <div className="text-center text-xl text-white p-6">
-        Loading portfolio...
+        Загрузка портфолио...
       </div>
     );
   }
@@ -176,23 +187,23 @@ export default function Portfolio() {
   if (portfolio.length === 0) {
     return (
       <div className="text-center text-xl text-white p-6">
-        No assets found
+        Активы не найдены
       </div>
     );
   }
 
   return (
     <div className="text-center text-white p-6 max-w-3xl mx-auto">
-      <h2 className="text-3xl font-bold mb-6 text-blue-300">Your Portfolio</h2>
+      <h2 className="text-3xl font-bold mb-6 text-blue-300">Портфолио</h2>
       <div className="bg-gray-800 p-6 rounded-lg shadow-lg relative">
-        <h3 className="text-xl font-semibold mb-4 text-green-300">Assets</h3>
+        <h3 className="text-xl font-semibold mb-4 text-green-300">Активы</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-gray-300">
-                <th className="p-3">Token Name</th>
-                <th className="p-3">Amount</th>
-                <th className="p-3">Value (USD)</th>
+                <th className="p-3">Название токена</th>
+                <th className="p-3">Количество</th>
+                <th className="p-3">Стоимость (USD)</th>
               </tr>
             </thead>
             <tbody>
@@ -207,8 +218,8 @@ export default function Portfolio() {
           </table>
         </div>
         <div className="mt-6 text-sm text-gray-400 flex justify-between">
-          <span>* Values are approximate, based on Jupiter API. Updated every 60 seconds.</span>
-          <span>Tokens Found: {portfolio.length}</span>
+          <span>* Стоимость приблизительная, данные из Jupiter API. Обновляется каждые 2 минуты.</span>
+          <span>Найдено токенов: {portfolio.length}</span>
         </div>
       </div>
     </div>

@@ -170,22 +170,22 @@ export default function Exchange() {
     }, [swapmenuOpen]);
 
   return (
-  <div className="w-131 h-130 flex flex-col items-center p-[2px] rounded-[32px] mt-15 bg-gradient-to-b from-green-600/90 via-emerald-400/90 to-purple-600/90">
-    <div style={themes[theme].background} className="w-130 h-130 flex flex-col items-center pb-3 pl-3 pr-3 rounded-[31px]">
-    <div className="w-full flex justify-end gap-1 pt-3 pb-1">
-      <button
-        className={`${themes[theme].buttonsRightHover} w-7 h-7 rounded-xl font-bold flex items-center justify-center`} 
-        ref={SwapButtonRef}
-        onClick={() => setSwapmenuOpen(!swapmenuOpen)}
-      >
-        <img src={Setting} alt="Settings" className={`w-7 h-7 ${themes[theme].imgColor}`} />
-      </button>
+  <div className="w-131 flex flex-col items-center p-[2px] rounded-[32px] mt-15 bg-gradient-to-b from-green-600/90 via-emerald-400/90 to-purple-600/90">
+    <div style={themes[theme].background} className="w-130 flex flex-col items-center p-3 rounded-[31px]">
+    <div className="w-full flex justify-end gap-1 pb-1">
       <button 
-        className={`${themes[theme].buttonsRightHover} w-7 h-7 rounded-xl font-bold flex items-center justify-center`}
+        className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-xl font-bold flex items-center justify-center`}
         onClick={() => fetchQuote(tokenA, tokenB, amountA)} 
         disabled={isLoading}
       >
         <img src={Refresh} alt="Refresh" className={`w-5 h-5 ${themes[theme].imgColor}`} />
+      </button>
+      <button
+        className={`${themes[theme].buttonsRightHover} w-8 h-8 rounded-xl font-bold flex items-center justify-center`} 
+        ref={SwapButtonRef}
+        onClick={() => setSwapmenuOpen(!swapmenuOpen)}
+      >
+        <img src={Setting} alt="Settings" className={`w-7 h-7 ${themes[theme].imgColor}`} />
       </button>
     </div>
 
@@ -201,7 +201,7 @@ export default function Exchange() {
           value={amountA}
           onChange={e => setAmountA(e.target.value)}
           placeholder="0.00"
-          className="w-1/1 border-1 text-3xl pt-4 pb-4"
+          className="w-1/1 border-1 text-3xl pt-4 pb-4 text-right no-spinner"
         />
       </div>
     </div>
@@ -232,22 +232,23 @@ export default function Exchange() {
         value={amountB}
         readOnly
         placeholder="0.00"
-        className="w-1/1 border-1 text-3xl pt-4 pb-4"
+        className="w-1/1 border-1 text-3xl pt-4 pb-4 text-right no-spinner"
       />
     </div>
   </div>
   </div>
 
-  {price && <div className="mb-2">1 {tokenA} ≈ {price.toFixed(6)} {tokenB}</div>}
-  {error && <div className="text-red-500 mb-2">{error}</div>}
-
   <button
     onClick={handleSwap}
     disabled={isLoading || !amountA}
-    className="mt-auto w-full h-13 rounded-2xl bg-green-600 text-white hover:bg-green-700 text-xl font-bold pb-1"
+    className="w-full h-14 rounded-2xl bg-green-600 text-white hover:bg-green-700 text-xl font-bold pb-1"
   >
     {isLoading ? 'Processing...' : 'Swap'}
   </button>
+  {price && <div className="flex items-center rounded-2xl bg-gray-200 w-full h-full mt-4 p-2">1 {tokenA} ≈ {price.toFixed(6)} {tokenB}</div>}
+  {error && <div className="flex items-center rounded-2xl bg-gray-200 w-full h-full mt-4 p-2 text-red-500">{error}</div>}
+
+  
   </div>
 
   {swapmenuOpen && (

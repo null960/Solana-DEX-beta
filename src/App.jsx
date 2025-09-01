@@ -10,6 +10,7 @@ import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { RPCContext } from './RPCContext.jsx';
+import TokenPage from './TokenPage.jsx';
 
 
 export default function App() {
@@ -32,6 +33,8 @@ export default function App() {
               <Routes>
                 <Route path="/exchange" element={<Exchange />} />
                 <Route path="/portfolio" element={<Portfolio />} />
+                <Route path="/portfolio/:address" element={<Portfolio />} />
+                <Route path="/tokens/:address" element={<TokenPage />} />
               </Routes>
             </main>
             {notification.show && (
